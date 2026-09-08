@@ -1,6 +1,6 @@
 # POS Data Pipeline
 
-Pulls sales, labor, purchasing, and weather data from a restaurant's connected
+Pulls sales, labor, purchasing, and weather data from a business's connected
 systems into a Neon Postgres database, on an automated schedule, to feed a
 Power BI executive dashboard.
 
@@ -79,6 +79,7 @@ Settings ─▶ Security and quality ─▶ Secrets and variables ─▶ New rep
 For the notebooks in `local_drive_runs/`, set them under Colab's
 **Runtime ─▶ Secrets** (key icon, left sidebar) using the same names.
 
+**Note** for this example a restaurant system was used, but any API with Point of Sale data should suffice.
 | Secret | Description | Where to find it |
 |---|---|---|
 | `TOAST_HOSTNAME` | Toast API subdomain for your integration | Toast dev portal → API access, e.g. `ws-api.toasttab.com` |
