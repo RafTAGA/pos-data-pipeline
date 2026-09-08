@@ -82,10 +82,10 @@ def safe_get_guid(field: str) -> str:
 #         is_paid = bool(paid_date_str)
 
 #         # All fields below have their own dictionary, so extract the GUID from them:
-#         #e.g,: "server": {"guid": "206b65fc-e8ca-4d51-ae3a-22e4273e36c0", "entityType": "RestaurantUser", "externalId": null
-#         #e.g.: "table": {"guid": "ad15bd29-dc40-4fb2-a63f-bb09f1675139", "entityType": "Table", "externalId": null}
-#         #e.g.: "revenueCenter": {"guid": "b39d8e06-e5ea-43a7-8aeb-112763b14963", "entityType": "RevenueCenter", "externalId": null}
-#         #e.g.: "diningOption": {"guid": "c636e784-f3fe-4281-bcb3-2c69350ba801", "entityType": "DiningOption", "externalId": null}
+#         #e.g,: "server": {"guid": "00000000-0000-0000-0000-000000000001", "entityType": "RestaurantUser", "externalId": null
+#         #e.g.: "table": {"guid": "00000000-0000-0000-0000-000000000002", "entityType": "Table", "externalId": null}
+#         #e.g.: "revenueCenter": {"guid": "00000000-0000-0000-0000-000000000003", "entityType": "RevenueCenter", "externalId": null}
+#         #e.g.: "diningOption": {"guid": "00000000-0000-0000-0000-000000000004", "entityType": "DiningOption", "externalId": null}
 #         server_guid = safe_get_guid(order.get("server"))
 #         table_guid = safe_get_guid(order.get("table"))
 #         revenue_center_guid = safe_get_guid(order.get("revenueCenter"))
