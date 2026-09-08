@@ -1,0 +1,177 @@
+name: Toast Orders Extraction
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: 'Start year (leave blank to auto-resume from last Neon load)'
+      start_month:
+        description: 'Start month (1-12, leave blank to auto-resume)'
+      start_day:
+        description: 'Start day (1-31, defaults to 1 if start_year is set)'
+      end_year:
+        description: 'End year (leave blank to auto-resume through today)'
+      end_month:
+        description: 'End month (1-12, leave blank to auto-resume)'
+      end_day:
+        description: 'End day (1-31, defaults to end_month''s last day)'
+  schedule:
+    # - cron: '0 13 * * 6'   # Saturdays 7am Central (CST) / 8am Central (CDT)
+    - cron: '0 8 * * 2'   # Tuesdays 3am Central (CDT) / 2am Central (CST)
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+
+#Extract Catalogs from Toast API
+      - name: Run API catalog extraction
+        env:
+          TOAST_HOSTNAME: ${{ secrets.TOAST_HOSTNAME }}
+          TOAST_CLIENT_ID: ${{ secrets.TOAST_CLIENT_ID }}
+          TOAST_CLIENT_SECRET: ${{ secrets.TOAST_CLIENT_SECRET }}
+          TOAST_RESTAURANT_GUID: ${{ secrets.TOAST_RESTAURANT_GUID }}
+        # Catalogs are a current-state snapshot, not date-ranged, so no
+        # START_YEAR/START_MONTH here. Run from repo root so
+        # scripts/run_catalog_extraction_api.py can find modules/api_toast.py.
+        run: python -u scripts/run_catalog_extraction_api.py
+
+#Processing Catalogs
+      - name: Process catalog JSON into CSV dimension tables
+        run: python -u scripts/process_catalogs_to_df.py
+
+#Upload Catalogs to Neon
+      - name: Load Toast catalogs into Neon
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: python -u scripts/load_catalogs_to_neon.py
+
+
+#Extract labor time entries from Toast API
+      - name: Run API labor extraction
+        id: extract_labor
+        env:
+          TOAST_HOSTNAME: ${{ secrets.TOAST_HOSTNAME }}
+          TOAST_CLIENT_ID: ${{ secrets.TOAST_CLIENT_ID }}
+          TOAST_CLIENT_SECRET: ${{ secrets.TOAST_CLIENT_SECRET }}
+          TOAST_RESTAURANT_GUID: ${{ secrets.TOAST_RESTAURANT_GUID }}
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+          START_YEAR: ${{ github.event.inputs.start_year }}
+          START_MONTH: ${{ github.event.inputs.start_month }}
+          START_DAY: ${{ github.event.inputs.start_day }}
+          END_YEAR: ${{ github.event.inputs.end_year }}
+          END_MONTH: ${{ github.event.inputs.end_month }}
+          END_DAY: ${{ github.event.inputs.end_day }}
+        # Run from repo root so scripts/run_labor_extraction_api.py can find
+        # modules/api_toast.py and default OUTPUT_DIR resolves correctly.
+        run: python -u scripts/run_labor_extraction_api.py
+
+#Processing Labor
+      - name: Process labor JSON into time-entry-level DataFrame (debug CSV)
+        env:
+          LABOR_YEAR_DIRS: ${{ steps.extract_labor.outputs.output_dir }}
+        run: python -u scripts/process_labor_to_df.py
+
+#Upload Labor to Neon
+      - name: Load Toast labor records into Neon
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: python -u scripts/load_toast_labor_to_neon.py
+
+
+
+#Extract refunds from Toast API
+      - name: Run API refund extraction
+        id: extract_refunds
+        env:
+          TOAST_HOSTNAME: ${{ secrets.TOAST_HOSTNAME }}
+          TOAST_CLIENT_ID: ${{ secrets.TOAST_CLIENT_ID }}
+          TOAST_CLIENT_SECRET: ${{ secrets.TOAST_CLIENT_SECRET }}
+          TOAST_RESTAURANT_GUID: ${{ secrets.TOAST_RESTAURANT_GUID }}
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+          START_YEAR: ${{ github.event.inputs.start_year }}
+          START_MONTH: ${{ github.event.inputs.start_month }}
+          START_DAY: ${{ github.event.inputs.start_day }}
+          END_YEAR: ${{ github.event.inputs.end_year }}
+          END_MONTH: ${{ github.event.inputs.end_month }}
+          END_DAY: ${{ github.event.inputs.end_day }}
+        run: python -u scripts/run_refund_extraction_api.py
+
+#Procesing Refunds
+      - name: Process refunds JSON into daily-summary DataFrame (debug CSV)
+        env:
+          REFUNDS_YEAR_DIRS: ${{ steps.extract_refunds.outputs.output_dir }}
+        run: python -u scripts/process_refunds_to_df.py
+
+#Upload Refunds to Neon
+      - name: Load Toast refunds records into Neon
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: python -u scripts/load_toast_refunds_to_neon.py
+
+
+
+
+#Extract orders from Toast API
+      - name: Run API order extraction
+        id: extract_orders
+        env:
+          TOAST_HOSTNAME: ${{ secrets.TOAST_HOSTNAME }}
+          TOAST_CLIENT_ID: ${{ secrets.TOAST_CLIENT_ID }}
+          TOAST_CLIENT_SECRET: ${{ secrets.TOAST_CLIENT_SECRET }}
+          TOAST_RESTAURANT_GUID: ${{ secrets.TOAST_RESTAURANT_GUID }}
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+          START_YEAR: ${{ github.event.inputs.start_year }}
+          START_MONTH: ${{ github.event.inputs.start_month }}
+          START_DAY: ${{ github.event.inputs.start_day }}
+          END_YEAR: ${{ github.event.inputs.end_year }}
+          END_MONTH: ${{ github.event.inputs.end_month }}
+          END_DAY: ${{ github.event.inputs.end_day }}
+        # Run from repo root so scripts/run_order_extraction_api.py can find
+        # modules/api_toast.py and default OUTPUT_DIR resolves correctly.
+        run: python -u scripts/run_order_extraction_api.py
+
+#Procesing Orders
+      - name: Process JSON into item-level DataFrame (debug CSV)
+        env:
+          ORDERS_YEAR_DIRS: ${{ steps.extract_orders.outputs.output_dir }}
+        run: python -u scripts/process_orders_to_df.py
+
+      - name: Build daily sales (orders merged with refunds)
+        env:
+          ORDERS_YEAR_DIRS: ${{ steps.extract_orders.outputs.output_dir }}
+          REFUNDS_YEAR_DIRS: ${{ steps.extract_refunds.outputs.output_dir }}
+        run: python -u scripts/process_daily_sales_to_df.py
+
+#Upload Order Data to Neon
+      - name: Load Toast order data related records into Neon
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: python -u scripts/load_toast_order_data_to_neon.py
+
+
+
+
+#Storing the outputs
+      - name: Upload outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: API-returns-.json-and-.csv
+          path: |
+            raw_labor/**/*.json
+            raw_labor/**/*.csv
+            raw_orders/**/*.json
+            raw_orders/**/*.csv
+            raw_refunds/**/*.json
+            raw_refunds/**/*.csv
+            catalogs/**/*.json
+            catalogs/**/*.csv

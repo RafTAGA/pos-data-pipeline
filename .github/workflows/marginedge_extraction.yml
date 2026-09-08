@@ -1,0 +1,90 @@
+name: MarginEdge Extraction
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_year:
+        description: 'Start year (leave blank to auto-resume from last Neon load)'
+      start_month:
+        description: 'Start month (1-12, leave blank to auto-resume)'
+      start_day:
+        description: 'Start day (1-31, defaults to 1 if start_year is set)'
+      end_year:
+        description: 'End year (leave blank to auto-resume through today)'
+      end_month:
+        description: 'End month (1-12, leave blank to auto-resume)'
+      end_day:
+        description: 'End day (1-31, defaults to end_month''s last day)'
+  schedule:
+    # - cron: '0 13 * * 6'   # Saturdays 7am Central (CST) / 8am Central (CDT)
+    - cron: '0 8 * * 2'   # Tuesdays 3am Central (CDT) / 2am Central (CST)
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+#Extract Catalogs from MarginEdge API
+      - name: Run MarginEdge catalog extraction
+        env:
+          MARGINEDGE_API_KEY: ${{ secrets.MARGINEDGE_API_KEY }}
+          MARGINEDGE_RESTAURANT_UNIT_ID: ${{ secrets.MARGINEDGE_RESTAURANT_UNIT_ID }}
+        run: python -u scripts/run_marginedge_catalog_extraction_api.py
+
+#Processing Catalogs
+      - name: Process MarginEdge catalog JSON into CSV dimension tables
+        run: python -u scripts/process_marginedge_catalogs_to_df.py
+
+#Upload Catalogs to Neon
+      - name: Load Toast catalogs into Neon
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: python -u scripts/load_marginedge_catalogs_to_neon.py
+
+
+#Extract orders from MarginEdge API
+      - name: Run MarginEdge order extraction
+        id: extract_marginedge
+        env:
+          MARGINEDGE_API_KEY: ${{ secrets.MARGINEDGE_API_KEY }}
+          MARGINEDGE_RESTAURANT_UNIT_ID: ${{ secrets.MARGINEDGE_RESTAURANT_UNIT_ID }}
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+          START_YEAR: ${{ github.event.inputs.start_year }}
+          START_MONTH: ${{ github.event.inputs.start_month }}
+          START_DAY: ${{ github.event.inputs.start_day }}
+          END_YEAR: ${{ github.event.inputs.end_year }}
+          END_MONTH: ${{ github.event.inputs.end_month }}
+          END_DAY: ${{ github.event.inputs.end_day }}
+        run: python -u scripts/run_marginedge_purchaise_extraction_api.py
+
+#Processing Orders + Line Items
+      - name: Process MarginEdge JSON into order-level and line-item DataFrames (debug CSV)
+        env:
+          MARGINEDGE_YEAR_DIRS: ${{ steps.extract_marginedge.outputs.output_dir }}
+        run: python -u scripts/process_marginedge_purchaises_to_df.py
+
+#Adding MarginEdge Purchaise order data to Neon
+      - name: Upsert MarginEdge orders and line items into Neon
+        env:
+          NEON_CONNECTION_STRING: ${{ secrets.NEON_CONNECTION_STRING }}
+        run: python -u scripts/load_marginedge_purchases_to_neon.py
+
+
+#Storing the outputs
+      - name: Upload outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: marginedge-json-and-csv
+          path: |
+            raw_marginedge/**/*.json
+            raw_marginedge/**/*.csv
+            catalogs/marginedge/**/*.json
+            catalogs/marginedge/**/*.csv
