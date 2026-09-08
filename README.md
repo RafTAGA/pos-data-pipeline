@@ -68,16 +68,29 @@ All three workflows can:
 
 ## Required secrets
 
-Set these under:
+Enter API related variables for calls: these are the values you must supply
+yourself before the pipeline can run against your own Toast/MarginEdge/Neon
+accounts — none of them ship with this repo.
+
+For the GitHub Actions workflows, set them under:
 ```
 Settings ─▶ Security and quality ─▶ Secrets and variables ─▶ New repository secret / ✏️ / 🗑️
-``` 
+```
+For the notebooks in `local_drive_runs/`, set them under Colab's
+**Runtime ─▶ Secrets** (key icon, left sidebar) using the same names.
 
-| Secret                                                                              | Used by |
-|---                                                                                  |---       |
-| `TOAST_HOSTNAME`, `TOAST_CLIENT_ID`, `TOAST_CLIENT_SECRET`, `TOAST_RESTAURANT_GUID` | Toast extraction |
-| `MARGINEDGE_API_KEY`, `MARGINEDGE_RESTAURANT_UNIT_ID`                               | MarginEdge extraction |
-| `NEON_CONNECTION_STRING`                                                            | All Neon loads |
+| Secret | Description | Where to find it |
+|---|---|---|
+| `TOAST_HOSTNAME` | Toast API subdomain for your integration | Toast dev portal → API access, e.g. `ws-api.toasttab.com` |
+| `TOAST_CLIENT_ID` | Toast API Client ID | Toast dev portal → your API access group → Standard API credentials |
+| `TOAST_CLIENT_SECRET` | Toast API Client Secret | Same page as Client ID — only shown once at creation |
+| `TOAST_RESTAURANT_GUID` | GUID of the specific restaurant location to pull | Toast dev portal → Restaurants |
+| `MARGINEDGE_API_KEY` | MarginEdge API key for your account | MarginEdge → Settings → Integrations → API |
+| `MARGINEDGE_RESTAURANT_UNIT_ID` | MarginEdge `restaurantUnitId` for the location being pulled | MarginEdge → Settings → Integrations → API |
+| `NEON_CONNECTION_STRING` | Postgres connection string | Neon project dashboard → Connection Details |
+
+Never hardcode any of these values directly into a script or notebook cell —
+always read them from repo secrets or Colab secrets as shown above.
 
 
 
